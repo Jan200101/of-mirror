@@ -13,12 +13,27 @@ def mkdir(path: Path):
             print(f"\"{path}\" already exists and is not a directory")
             exit(1)
 
-def urlopen(*args, **kwargs):
+def urlopen(url, *args, **kwargs):
     try:
-        return urllib.request.urlopen(*args, **kwargs)
+        req = urllib.request.Request(
+            url, *args, **kwargs,
+            headers={
+                'User-Agent': 'Mozilla/5.0'
+            }
+        )
+        retries = 0
+        while (retries < 10):
+            try:
+                return urllib.request.urlopen(req, timeout=10).read()
+            except TimeoutError:
+                retries += 1
+                continue
+
+        print(f"Tried downloading {url} 10 times")
     except urllib.error.URLError as e:
-        print(e.reason)
-        exit(1)
+        print(f"{url} {e.reason}")
+
+    return None
 
 def main():
     if len(sys.argv) < 3:
@@ -38,8 +53,20 @@ def main():
     revisions_url = f"{url}/revisions"
     objects_url = f"{url}/objects"
 
-    latest_rev = int(urlopen(f"{revisions_url}/latest").read())
-    if (latest_rev < 1):
+    (output_dir / "reithreads").write_text("1")
+
+    rei_version = urlopen(f"{url}/reiversion")
+    if not rei_version:
+        print(f"Could not fetch reiversion")
+        exit(1)
+    (output_dir / "reiversion").write_bytes(rei_version)    
+
+    latest_rev = urlopen(f"{revisions_url}/latest")
+    if not latest_rev:
+        exit(1)
+    
+    latest_rev = int(latest_rev)
+    if latest_rev < 1:
         print(f"Latest revision({latest_rev}) is invalid")
         exit(1)
 
@@ -50,27 +77,50 @@ def main():
 
     latest_rev_file.write_text(str(latest_rev))
 
-    for r in range(1, latest_rev+1):
-        raw_data = urlopen(f"{revisions_url}/{r}").read()
-        data = json.loads(raw_data)
-        (revisions_dir / str(r)).write_text(raw_data)
+    for r in range(latest_rev+1):
+        print(f"Downloading Revision {r}", end="\r")
 
-        for o in data:
-            # other types are unimportant right now
+        raw_data = urlopen(f"{revisions_url}/{r}")
+        if not raw_data:
+            continue
+
+        data = json.loads(raw_data)
+        (revisions_dir / str(r)).write_bytes(raw_data)
+
+        if not data:
+            continue
+
+        s = len(data)
+        for i, o in enumerate(data):
+
+            prefix = f"\r[{r}][{i+1}/{s}]{o['object']}:"
+            suffix = " " * 30
+
             if o["type"] == 0:
                 if not o["object"]:
                     print(f"Missing object for {p['path']}")
                     continue
 
+                print(f"{prefix} checking", end="")
+
                 object_file = objects_dir / o["object"]
                 if object_file.is_file():
-                    object_hash = object_file.read_bytes()
-                    if object_hash != o["hash"]:
-                        raw_object = urlopen(f"{objects_url}/{o['hash']}").read()
-                        object_file.write_bytes(raw_object)
-                else:
-                    raw_object = urlopen(f"{objects_url}/{o['hash']}").read()
-                    object_file.write_bytes(raw_object)
+                    object_hash = hashlib.md5(object_file.read_bytes()).hexdigest()
+                    if object_hash == o["hash"]:
+                        print(f"{prefix} done {suffix}", end="")
+                        continue
+
+                print(f"{prefix} downloading {suffix}", end="")
+                raw_object = urlopen(f"{objects_url}/{o['object']}")
+                if not raw_object:
+                    continue
+                print(f"{prefix} writing {suffix}", end="")
+                object_file.write_bytes(raw_object)
+                print(f"{prefix} done {suffix}", end="")
+            else:
+                print(f"{prefix} done {suffix}", end="")
+
+        print("")
 
 if __name__ == "__main__":
     main()
