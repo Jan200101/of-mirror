@@ -4,6 +4,7 @@ import json
 import hashlib
 import sys
 import os.path
+import os
 
 def mkdir(path: Path):
     if not path.is_dir():
@@ -12,6 +13,10 @@ def mkdir(path: Path):
         except FileExistsError:
             print(f"\"{path}\" already exists and is not a directory")
             exit(1)
+
+def cprint(*args, **kwargs):
+    print("\r" + " " * (os.get_terminal_size().columns), end="")
+    return print(*args, **kwargs)
 
 def urlopen(url, *args, **kwargs):
     try:
@@ -71,7 +76,7 @@ def main():
         exit(1)
 
     latest_rev_file = (revisions_dir / "latest")
-    if latest_rev_file.is_file() and (int(latest_rev_file.read_text()) < latest_rev):
+    if latest_rev_file.is_file() and (int(latest_rev_file.read_text()) > latest_rev):
         print("Local mirror is newer than remote")
         exit(1)
 
@@ -94,31 +99,30 @@ def main():
         for i, o in enumerate(data):
 
             prefix = f"\r[{r}][{i+1}/{s}]{o['object']}:"
-            suffix = " " * 30
 
             if o["type"] == 0:
                 if not o["object"]:
                     print(f"Missing object for {p['path']}")
                     continue
 
-                print(f"{prefix} checking", end="")
+                cprint(f"{prefix} checking", end="")
 
                 object_file = objects_dir / o["object"]
                 if object_file.is_file():
                     object_hash = hashlib.md5(object_file.read_bytes()).hexdigest()
                     if object_hash == o["hash"]:
-                        print(f"{prefix} done {suffix}", end="")
+                        cprint(f"{prefix} done", end="")
                         continue
 
-                print(f"{prefix} downloading {suffix}", end="")
+                cprint(f"{prefix} downloading", end="")
                 raw_object = urlopen(f"{objects_url}/{o['object']}")
                 if not raw_object:
                     continue
-                print(f"{prefix} writing {suffix}", end="")
+                cprint(f"{prefix} writing", end="")
                 object_file.write_bytes(raw_object)
-                print(f"{prefix} done {suffix}", end="")
+                cprint(f"{prefix} done", end="")
             else:
-                print(f"{prefix} done {suffix}", end="")
+                cprint(f"{prefix} done", end="")
 
         print("")
 
