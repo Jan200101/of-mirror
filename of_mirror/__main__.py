@@ -15,7 +15,10 @@ def mkdir(path: Path):
             exit(1)
 
 def cprint(*args, **kwargs):
-    print("\r" + " " * (os.get_terminal_size().columns), end="")
+    try:
+        print("\r" + " " * (os.get_terminal_size().columns), end="")
+    except OSError:
+        pass
     return print(*args, **kwargs)
 
 def urlopen(url, *args, **kwargs):
