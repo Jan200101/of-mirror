@@ -136,7 +136,8 @@ def main():
         if f not in objects:
             unused.append(f)
 
-    print("\n\nThe follow objects are unused:\n" + ", ".join(unused))
+    if unused:
+        print("\n\nThe follow objects are unused:\n" + ", ".join(unused))
 
 
 if __name__ == "__main__":
