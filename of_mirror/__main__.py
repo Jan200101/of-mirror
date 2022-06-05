@@ -6,6 +6,8 @@ import sys
 import os.path
 import os
 
+objects = set()
+
 def mkdir(path: Path):
     if not path.is_dir():
         try:
@@ -33,7 +35,7 @@ def urlopen(url, *args, **kwargs):
         while (retries < 10):
             try:
                 return urllib.request.urlopen(req, timeout=10).read()
-            except TimeoutError:
+            except (TimeoutError, ConnectionResetError):
                 retries += 1
                 continue
 
@@ -108,6 +110,8 @@ def main():
                     print(f"Missing object for {p['path']}")
                     continue
 
+                objects.add(o["object"])
+
                 cprint(f"{prefix} checking", end="")
 
                 object_file = objects_dir / o["object"]
@@ -127,7 +131,13 @@ def main():
             else:
                 cprint(f"{prefix} done", end="")
 
-        print("")
+    unused = []
+    for f in os.listdir(objects_dir):
+        if f not in objects:
+            unused.append(f)
+
+    print("\n\nThe follow objects are unused:\n" + ", ".join(unused))
+
 
 if __name__ == "__main__":
     main()
