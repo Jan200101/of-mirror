@@ -5,8 +5,16 @@ import hashlib
 import sys
 import os.path
 import os
+import argparse
 
 objects = set()
+
+parser = argparse.ArgumentParser(description='Process some integers.')
+parser.add_argument("output_dir", type=str)
+parser.add_argument("url", type=str)
+parser.add_argument("--cleanup", help="remove leftover objects", action="store_true")
+
+args = parser.parse_args()
 
 def mkdir(path: Path):
     if not path.is_dir():
@@ -20,7 +28,7 @@ def cprint(*args, **kwargs):
     try:
         print("\r" + " " * (os.get_terminal_size().columns), end="")
     except OSError:
-        pass
+        print("\b" * 20)
     return print(*args, **kwargs)
 
 def urlopen(url, *args, **kwargs):
@@ -46,11 +54,7 @@ def urlopen(url, *args, **kwargs):
     return None
 
 def main():
-    if len(sys.argv) < 3:
-        print(f"{os.path.basename(sys.argv[0])} [output dir] [url]")
-        return
-
-    output_dir = Path(sys.argv[1]).expanduser()
+    output_dir = Path(args.output_dir).expanduser()
     mkdir(output_dir)
 
     revisions_dir = output_dir / "revisions"
@@ -59,7 +63,7 @@ def main():
     objects_dir = output_dir / "objects"
     mkdir(objects_dir)
 
-    url = sys.argv[2]
+    url = args.url
     revisions_url = f"{url}/revisions"
     objects_url = f"{url}/objects"
 
@@ -131,13 +135,18 @@ def main():
             else:
                 cprint(f"{prefix} done", end="")
 
+    print("")
     unused = []
     for f in os.listdir(objects_dir):
         if f not in objects:
             unused.append(f)
 
     if unused:
-        print("\n\nThe follow objects are unused:\n" + ", ".join(unused))
+        if args.cleanup:
+            for u in unused:
+                (objects_dir / u).unlink()
+        else:
+            print("\n\nThe follow objects are unused:\n" + ", ".join(unused))
 
 
 if __name__ == "__main__":
