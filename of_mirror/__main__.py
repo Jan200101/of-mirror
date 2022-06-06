@@ -127,8 +127,10 @@ def main():
 
                 cprint(f"{prefix} downloading", end="")
                 raw_object = urlopen(f"{objects_url}/{o['object']}")
-                if not raw_object:
+
+                if raw_object is None:
                     continue
+
                 cprint(f"{prefix} writing", end="")
                 object_file.write_bytes(raw_object)
                 cprint(f"{prefix} done", end="")
