@@ -36,7 +36,7 @@ def urlopen(url, *args, **kwargs):
         req = urllib.request.Request(
             url, *args, **kwargs,
             headers={
-                'User-Agent': 'Mozilla/5.0'
+                'User-Agent': 'murse/0.1 (of-mirror)'
             }
         )
         retries = 0
